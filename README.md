@@ -64,6 +64,7 @@ A modern, AI-powered Customer Relationship Management (CRM) system built with Re
     Create a `.env` file in the root directory and add your backend URL (and Gemini key if applicable on frontend):
     ```env
     VITE_BACKEND_URL=your_backend_url_here
+    VITE_GEMINI_API_KEY=yout_gemini_api_key
     ```
 
 4.  **Run the application**
