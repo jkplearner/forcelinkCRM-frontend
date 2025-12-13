@@ -1,16 +1,76 @@
-# React + Vite
+# ForceLink CRM
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, AI-powered Customer Relationship Management (CRM) system built with React, Vite, and Tailwind CSS. ForceLink CRM provides a sleek, dark-mode interface with powerful tools to manage leads, opportunities, and analytics.
 
-Currently, two official plugins are available:
+![ForceLink CRM Banner](public/favicon.svg)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Features
 
-## React Compiler
+### 🔐 Secure Authentication
+- **JWT-based Authentication**: Secure Login and Signup flows.
+- **Protected Routes**: Ensures only authenticated users can access the dashboard.
+- **User Session Management**: Persistent login states.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 📊 Interactive Dashboard
+- **Analytics Overview**: Real-time insights into your business performance.
+  - **Revenue Timeline**: Visualize financial growth over time.
+  - **Opportunity Stages**: Track deals through different pipeline stages.
+  - **Industry Distribution**: Understand your client demographics.
+- **KPI Cards**: Quick stats for Total Revenue, Active Leads, Win Rate, and more.
 
-## Expanding the ESLint configuration
+### 🤖 ForceLink AI Assistant
+- **Integrated AI**: Built-in AI assistant powered by Google Gemini.
+- **Contextual Help**: Get instant answers to CRM queries and business advice.
+- **Smart Suggestions**: AI-driven prompts to help you navigate and optimize your workflow.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 📝 Comprehensive Management
+- **Lead Management**: Capture and track potential clients.
+- **Opportunity Tracking**: Manage deals from prospect to close.
+- **Account Management**: Organize organizational details.
+- **Task & Notes**: Built-in productivity visualization for keeping track of to-dos and important information.
+
+### 🎨 Modern UI/UX
+- **Glassmorphism Design**: Premium aesthetic with backdrop blurs and subtle gradients.
+- **Dark Mode Native**: Optimized for reduced eye strain and sleek appearance.
+- **Responsive**: Fully functional across desktop and tablet devices.
+- **Animations**: Smooth transitions and interactive elements using `framer-motion` concepts.
+
+## 🛠️ Tech Stack
+
+- **Frontend Framework**: [React](https://react.dev/)
+- **Build Tool**: [Vite](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **Routing**: [React Router](https://reactrouter.com/)
+- **Charts**: [Recharts](https://recharts.org/)
+- **AI Integration**: Google Gemini API
+
+## 📦 Installation
+
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/jkplearner/forcelinkCRM-frontend.git
+    cd forcelink-crm-frontend
+    ```
+
+2.  **Install dependencies**
+    ```bash
+    npm install
+    # or
+    yarn install
+    ```
+
+3.  **Environment Setup**
+    Create a `.env` file in the root directory and add your backend URL (and Gemini key if applicable on frontend):
+    ```env
+    VITE_BACKEND_URL=your_backend_url_here
+    ```
+
+4.  **Run the application**
+    ```bash
+    npm run dev
+    ```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
