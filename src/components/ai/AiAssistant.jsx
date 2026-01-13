@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Send, Sparkles } from "lucide-react";
 import AiMessage from "./AiMessage";
-import { generateGeminiResponse } from "../../utils/geminiClient";
-import { constructSystemPrompt } from "./aiPromptBuilder";
+import { askAI } from "../../api/ai";
 
 const AiAssistant = () => {
   const [messages, setMessages] = useState([
@@ -35,16 +34,9 @@ const AiAssistant = () => {
     inFlight.current = true;
 
     try {
-      const systemPrompt = constructSystemPrompt();
+      const { data } = await askAI(userText);
 
-      const response = await generateGeminiResponse(
-        systemPrompt,
-        userText,
-        "User provided context only.",
-        []
-      );
-
-      setMessages(prev => [...prev, { role: "ai", text: response }]);
+      setMessages(prev => [...prev, { role: "ai", text: data.answer }]);
     } catch {
       setMessages(prev => [
         ...prev,
