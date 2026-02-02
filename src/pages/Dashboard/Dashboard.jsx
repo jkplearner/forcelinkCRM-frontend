@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import {
     LayoutDashboard,
     Users,
@@ -18,30 +18,20 @@ import { useNavigate } from "react-router-dom";
 import DotGrid from "../../components/ui/DotGrid";
 
 // API Imports
-import { getLeads, createLead, updateLead, deleteLead } from "../../api/leads";
-import { getAccounts, createAccount, updateAccount, deleteAccount } from "../../api/accounts";
-import { getOpportunities, createOpportunity, updateOpportunity, deleteOpportunity } from "../../api/opportunities";
-import { getTasks, createTask, updateTask, deleteTask } from "../../api/tasks";
-import { getNotes, createNote, deleteNote } from "../../api/notes";
+import { getLeads, deleteLead } from "../../api/leads";
+import { getAccounts, deleteAccount } from "../../api/accounts";
+import { getOpportunities, deleteOpportunity } from "../../api/opportunities";
+import { getTasks, deleteTask } from "../../api/tasks";
+import { getNotes, deleteNote } from "../../api/notes";
 
-// Analytics Components
-import KpiCard from "../../components/analytics/KpiCard";
-import ChartCard from "../../components/analytics/ChartCard";
-import LeadStatusChart from "../../components/analytics/charts/LeadStatusChart";
-import OpportunityStageChart from "../../components/analytics/charts/OpportunityStageChart";
-import RevenueTimelineChart from "../../components/analytics/charts/RevenueTimelineChart";
-import AccountsIndustryChart from "../../components/analytics/charts/AccountsIndustryChart";
-
-// Component Imports
-import DataTable from "../../components/common/DataTable";
-import LeadForm from "../../components/forms/LeadForm";
-import AccountForm from "../../components/forms/AccountForm";
-import OpportunityForm from "../../components/forms/OpportunityForm";
-import TaskForm from "../../components/forms/TaskForm";
-import NoteForm from "../../components/forms/NoteForm";
-import RecordDetailsModal from "../../components/modals/RecordDetailsModal";
+// Notification Components
 import NotificationPanel from "../../components/notifications/NotificationPanel";
-import AiAssistant from "../../components/ai/AiAssistant";
+
+// Lazy Loaded Components
+const DashboardAnalytics = React.lazy(() => import('./components/DashboardAnalytics'));
+const DashboardTables = React.lazy(() => import('./components/DashboardTables'));
+const DashboardModals = React.lazy(() => import('./components/DashboardModals'));
+const AiAssistant = React.lazy(() => import('../../components/ai/AiAssistant'));
 
 export default function Dashboard() {
     const [mode, setMode] = useState("dashboard");
@@ -51,8 +41,8 @@ export default function Dashboard() {
 
     // Data State
     const [data, setData] = useState([]);
-    const [aiData, setAiData] = useState(null);
-    const [loading, setLoading] = useState(false);
+    // Loading starts true to avoid flash of empty state on initial load
+    const [loading, setLoading] = useState(true);
     const [apiError, setApiError] = useState("");
 
     // Analytics State
@@ -60,10 +50,11 @@ export default function Dashboard() {
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingRecord, setEditingRecord] = useState(null); // New state for editing
-    const [selectedRecord, setSelectedRecord] = useState(null); // For Details view
+    const [editingRecord, setEditingRecord] = useState(null);
+    const [selectedRecord, setSelectedRecord] = useState(null);
     const [notifications, setNotifications] = useState([]);
     const navigate = useNavigate();
+
     // Track sent reminders to prevent duplicates
     const sentReminders = React.useRef(new Set());
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -109,6 +100,7 @@ export default function Dashboard() {
 
     const normalizeData = (res) =>
         Array.isArray(res.data) ? res.data : (res.data?.data || []);
+
     // ---------------------------------------------------
     // NOTIFICATION HELPERS
     // ---------------------------------------------------
@@ -157,38 +149,32 @@ export default function Dashboard() {
             const dueTime = new Date(dateStr).getTime();
             const diff = dueTime - now;
 
-            // Generate a unique key for this specific alert
-            // e.g. "task_123_due_soon"
             const dueKey = `${taskId}_due_soon`;
             const overdueKey = `${taskId}_overdue`;
 
-            // Due Soon (< 24h)
             if (diff > 0 && diff < oneDay) {
                 if (!sentReminders.current.has(dueKey)) {
                     addNotification({ type: 'task_due_soon', title: 'Task Due Soon', message: `${subject} is due soon.` });
-                    sentReminders.current.add(dueKey); // Mark as sent
+                    sentReminders.current.add(dueKey);
                 }
             }
-            // Overdue
             else if (diff < 0) {
                 if (!sentReminders.current.has(overdueKey)) {
                     addNotification({ type: 'task_overdue', title: 'Task Overdue', message: `${subject} is overdue!` });
-                    sentReminders.current.add(overdueKey); // Mark as sent
+                    sentReminders.current.add(overdueKey);
                 }
             }
         });
     };
 
-    // Initialize
     useEffect(() => { loadNotifications(); }, []);
+
     // ---------------------------------------------------
     // ANALYTICS COMPUTATION
     // ---------------------------------------------------
     const computeAnalytics = (leads, accounts, opportunities, tasks, notes) => {
-        // Helpers
         const normalizeStr = (str) => (str || '').toString().trim().toLowerCase();
 
-        // Leads Analysis (By Status)
         const totalLeads = leads.length;
         const statusCounts = {
             'Open': 0,
@@ -213,7 +199,6 @@ export default function Dashboard() {
             { name: 'Converted', value: statusCounts['Converted'] }
         ].filter(d => d.value > 0);
 
-        // Accounts Analysis
         const totalAccounts = accounts.length;
         const industryCounts = {};
         accounts.forEach(acc => {
@@ -225,7 +210,6 @@ export default function Dashboard() {
             value: industryCounts[key]
         }));
 
-        // Opportunities Analysis
         const totalOpportunities = opportunities.length;
         const stageCounts = {};
         const revenueByMonthMap = {};
@@ -257,10 +241,6 @@ export default function Dashboard() {
                 amount: revenueByMonthMap[key].amount
             }));
 
-        // ----------------------------
-        // Tasks Analysis (UPDATED)
-        // ----------------------------
-        // Exclude: Completed, Deferred
         const pendingTasksCount = tasks.filter(t => {
             const status = normalizeStr(getField(t, 'status', 'Status'));
             return !(status.includes('completed') || status.includes('deferred'));
@@ -285,11 +265,13 @@ export default function Dashboard() {
     // DATA FETCHING
     // ---------------------------------------------------
     const loadData = async (isPolling = false) => {
-        if (!isPolling) setLoading(true);
+        if (!isPolling) {
+            setLoading(true);
+            setData([]); // Clear data to prevent flickering of old data
+        }
         setApiError("");
         try {
             if (mode === "dashboard" || mode === "ai") {
-                // Parallel fetch for analytics/AI
                 const [leadsRes, accountsRes, oppsRes, tasksRes, notesRes] = await Promise.all([
                     getLeads(),
                     getAccounts(),
@@ -305,18 +287,11 @@ export default function Dashboard() {
                 const notes = normalizeData(notesRes);
                 checkTaskDueReminders(tasks);
 
-                // Compute
                 const stats = computeAnalytics(leads, accounts, opps, tasks, notes);
                 setAnalytics(stats);
 
-                if (mode === "ai") {
-                    // For AI, we need the full context in a separate state
-                    setAiData({ leads, accounts, opportunities: opps, tasks, notes });
-                    // Clear table data to prevent leaks/crashes
-                    setData([]);
-                } else {
-                    setData([]);
-                }
+                // AI context is handled by backend now, no need to store full data here for AI
+                setData([]);
             } else {
                 let res;
                 if (mode === "leads") res = await getLeads();
@@ -342,7 +317,6 @@ export default function Dashboard() {
         }
     };
 
-    // Initial load & Polling for Dashboard
     useEffect(() => {
         if (["dashboard", "leads", "accounts", "opportunities", "tasks", "notes", "ai"].includes(mode)) {
             loadData();
@@ -352,7 +326,7 @@ export default function Dashboard() {
 
         if (mode === "dashboard") {
             const interval = setInterval(() => {
-                loadData(true); // Poll silently
+                loadData(true);
             }, 10000);
             return () => clearInterval(interval);
         }
@@ -395,7 +369,6 @@ export default function Dashboard() {
 
     const handleSuccess = async () => {
         const action = editingRecord ? "updated" : "created";
-        // Simple notification trigger
         addNotification({
             type: `${mode}_success`,
             title: "Success",
@@ -404,24 +377,6 @@ export default function Dashboard() {
         await loadData();
         setEditingRecord(null);
         setIsModalOpen(false);
-    };
-
-    const renderModal = () => {
-        if (!isModalOpen) return null;
-
-        const props = {
-            onClose: () => setIsModalOpen(false),
-            onSuccess: handleSuccess,
-            initialData: editingRecord // Pass editing record if any
-        };
-
-        if (mode === "leads") return <LeadForm {...props} createApi={createLead} updateApi={updateLead} />;
-        if (mode === "accounts") return <AccountForm {...props} createApi={createAccount} updateApi={updateAccount} />;
-        if (mode === "opportunities") return <OpportunityForm {...props} createApi={createOpportunity} updateApi={updateOpportunity} />;
-        if (mode === "tasks") return <TaskForm {...props} createApi={createTask} updateApi={updateTask} />;
-        if (mode === "notes") return <NoteForm {...props} createApi={createNote} />;
-
-        return null;
     };
 
     const menuItems = [
@@ -434,68 +389,14 @@ export default function Dashboard() {
         { id: "ai", label: "AI Assistant", icon: Bot },
     ];
 
-    // ---------------------------------------------------
-    // RENDER ANALYTICS UI
-    // ---------------------------------------------------
-    const renderAnalytics = () => {
-        if (loading && !analytics) return (
-            <div className="flex h-full items-center justify-center">
-                <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
-            </div>
-        );
-
-        if (!analytics) return null;
-
-        return (
-            <div className="p-8 space-y-8 animate-fade-in custom-scrollbar overflow-y-auto h-full pb-24">
-                <header className="mb-6">
-                    <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard Overview</h1>
-                    <p className="text-slate-400 mt-1">Real-time insights and performance metrics</p>
-                </header>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <KpiCard title="Total Leads" value={analytics.totalLeads} icon={Users} delay={0.1} />
-                    <KpiCard title="Warm Leads" value={analytics.totalWarmLeads} icon={Target} delay={0.15} />
-                    <KpiCard title="Total Opportunities" value={analytics.totalOpportunities} icon={Briefcase} delay={0.2} />
-                    <KpiCard title="Tasks Pending" value={analytics.totalTasks} icon={CheckSquare} delay={0.25} />
-                    <KpiCard title="Hot Leads" value={analytics.totalHotLeads} icon={Target} delay={0.3} />
-                    <KpiCard title="Total Accounts" value={analytics.totalAccounts} icon={Users} delay={0.35} />
-                    <KpiCard title="Total Notes" value={analytics.totalNotes} icon={StickyNote} delay={0.4} />
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[400px]">
-                    <ChartCard title="Revenue Timeline" delay={0.5}>
-                        <RevenueTimelineChart data={analytics.revenueTimeline} />
-                    </ChartCard>
-                    <ChartCard title="Lead Status Distribution" delay={0.6}>
-                        <LeadStatusChart data={analytics.leadStatusData} />
-                    </ChartCard>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[400px]">
-                    <ChartCard title="Opportunity Pipeline" delay={0.7}>
-                        <OpportunityStageChart data={analytics.pipelineByStage} />
-                    </ChartCard>
-                    <ChartCard title="Accounts by Industry" delay={0.8}>
-                        <AccountsIndustryChart data={analytics.accountsByIndustry} />
-                    </ChartCard>
-                </div>
-            </div>
-        );
-    };
-
     return (
         <div className="relative min-h-screen w-full bg-black text-white font-sans selection:bg-indigo-500/30 overflow-hidden">
-
-            {/* Background Layer */}
             <div className="fixed inset-0 z-0 opacity-40">
                 <DotGrid />
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.5)_0%,black_100%)] pointer-events-none" />
             </div>
 
             <div className="relative z-10 flex h-screen">
-
-                {/* SIDEBAR (UNCHANGED UI) */}
                 <aside
                     className={`fixed md:relative z-50 h-full bg-black/95 backdrop-blur-xl border-r border-white/10 transition-all duration-300 ease-in-out flex flex-col shadow-2xl md:shadow-none
                     ${isSidebarOpen
@@ -513,7 +414,6 @@ export default function Dashboard() {
                         </button>
                     </div>
 
-                    {/* MENU ITEMS */}
                     <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-2 no-scrollbar">
                         {menuItems.map((item) => (
                             <button
@@ -521,7 +421,7 @@ export default function Dashboard() {
                                 onClick={() => {
                                     setMode(item.id);
                                     if (window.innerWidth < 768) setIsSidebarOpen(false);
-                                    setSelectedRecord(null); // Clear detail view on switch
+                                    setSelectedRecord(null);
                                 }}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group whitespace-nowrap
                                     ${mode === item.id
@@ -540,10 +440,7 @@ export default function Dashboard() {
                     </nav>
                 </aside>
 
-                {/* MAIN CONTENT AREA */}
                 <main className="flex-1 flex flex-col h-full min-w-0 bg-black/50 overflow-hidden relative">
-
-                    {/* TOPBAR (UNCHANGED UI) */}
                     <header className="h-16 border-b border-white/5 bg-black/40 backdrop-blur-md flex items-center justify-between px-4 md:px-8 shrink-0 relative z-30">
                         <div className="flex items-center gap-4">
                             <button
@@ -558,7 +455,6 @@ export default function Dashboard() {
                         </div>
 
                         <div className="flex items-center gap-4 md:gap-6">
-                            {/* SEARCH FIELD */}
                             <div className="hidden md:flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 focus-within:bg-white/10 focus-within:border-indigo-500/50 transition-all w-64">
                                 <Search size={16} className="text-slate-500" />
                                 <input
@@ -569,7 +465,6 @@ export default function Dashboard() {
                                 />
                             </div>
 
-                            {/* NOTIFICATIONS */}
                             <div className="relative">
                                 <button
                                     onClick={() => {
@@ -593,7 +488,6 @@ export default function Dashboard() {
                                 )}
                             </div>
 
-                            {/* USER MENU */}
                             <div className="relative">
                                 <button
                                     onClick={toggleUserMenu}
@@ -624,86 +518,70 @@ export default function Dashboard() {
                         </div>
                     </header>
 
-                    {/* CONTENT PANEL */}
-                    <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
-
-                        {/* Top Action Bar for Modules */}
-                        {["leads", "accounts", "opportunities", "tasks", "notes"].includes(mode) && (
-                            <div className="flex justify-between items-center mb-6 animate-fade-in-up">
-                                <div className="flex items-center gap-4">
-                                    <h2 className="text-2xl font-bold text-white capitalize">{mode}</h2>
-                                    <span className="bg-white/10 text-slate-400 px-3 py-1 rounded-full text-xs font-medium">
-                                        {data.length} Records
-                                    </span>
+                    <Suspense fallback={
+                        <div className="flex h-full items-center justify-center">
+                            <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+                        </div>
+                    }>
+                        <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+                            {["leads", "accounts", "opportunities", "tasks", "notes"].includes(mode) && (
+                                <div className="flex justify-between items-center mb-6 animate-fade-in-up">
+                                    <div className="flex items-center gap-4">
+                                        <h2 className="text-2xl font-bold text-white capitalize">{mode}</h2>
+                                        <span className="bg-white/10 text-slate-400 px-3 py-1 rounded-full text-xs font-medium">
+                                            {data.length} Records
+                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={openCreateModal}
+                                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-indigo-500/20 active:scale-95"
+                                    >
+                                        <Plus size={18} />
+                                        New {mode.slice(0, -1)}
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={openCreateModal}
-                                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-indigo-500/20 active:scale-95"
-                                >
-                                    <Plus size={18} />
-                                    New {mode.slice(0, -1)}
-                                </button>
-                            </div>
-                        )}
+                            )}
 
-                        {/* LOADING */}
-                        {loading && (
-                            <div className="text-center py-20 text-slate-400 animate-pulse">
-                                Loading {mode}...
-                            </div>
-                        )}
+                            {["leads", "accounts", "opportunities", "tasks", "notes"].includes(mode) && (
+                                <DashboardTables
+                                    mode={mode}
+                                    data={data}
+                                    loading={loading}
+                                    error={apiError}
+                                    onRowClick={(row) => setSelectedRecord(row)}
+                                    onEdit={mode !== 'notes' ? handleEdit : undefined}
+                                    onDelete={handleDelete}
+                                />
+                            )}
 
-                        {/* API ERROR */}
-                        {!loading && apiError && (
-                            <div className="text-center py-20 text-red-400 border border-red-500/10 bg-red-500/5 rounded-xl mx-auto max-w-lg">
-                                <p className="font-semibold mb-1">Error Loading Data</p>
-                                <p className="text-sm opacity-80">{apiError}</p>
-                            </div>
-                        )}
+                            {mode === "dashboard" && (
+                                <DashboardAnalytics
+                                    analytics={analytics}
+                                    loading={loading}
+                                />
+                            )}
 
-                        {/* DATA VIEW */}
-                        {!loading && !apiError && ["leads", "accounts", "opportunities", "tasks", "notes"].includes(mode) && (
-                            <>
-                                <h1 className="text-2xl font-bold mb-6 text-white capitalize hidden">{mode} List</h1>
-                                {/* DataTable */}
-                                <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-                                    <DataTable
-                                        data={data}
-                                        onRowClick={(row) => setSelectedRecord(row)}
-                                        onEdit={mode !== 'notes' ? handleEdit : undefined} // Notes don't have update
-                                        onDelete={handleDelete}
-                                    />
+                            {mode === "ai" && (
+                                <div className="h-full p-4 md:p-8 animate-fade-in-up">
+                                    <AiAssistant />
                                 </div>
-                            </>
-                        )}
-
-                        {/* DEFAULT DASHBOARD VIEW */}
-                        {!loading && !apiError && (mode === "dashboard") && (
-                            renderAnalytics()
-                        )}
-
-                        {/* AI ASSISTANT */}
-                        {!loading && !apiError && (mode === "ai") && (
-                            <div className="h-full p-4 md:p-8 animate-fade-in-up">
-                                <AiAssistant data={aiData} />
-                            </div>
-                        )}
-
-                    </div>
+                            )}
+                        </div>
+                    </Suspense>
                 </main>
             </div>
 
-            {/* RENDER MODALS */}
-            {renderModal()}
-            {
-                selectedRecord && (
-                    <RecordDetailsModal
-                        record={selectedRecord}
-                        type={mode}
-                        onClose={() => setSelectedRecord(null)}
-                    />
-                )
-            }
+            <Suspense fallback={null}>
+                <DashboardModals
+                    mode={mode}
+                    isModalOpen={isModalOpen}
+                    editingRecord={editingRecord}
+                    onClose={() => setIsModalOpen(false)}
+                    onSuccess={handleSuccess}
+                    selectedRecord={selectedRecord}
+                    onDetailClose={() => setSelectedRecord(null)}
+                />
+            </Suspense>
         </div >
     );
 }
