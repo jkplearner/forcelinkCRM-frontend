@@ -1,8 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Link as LinkIcon } from "lucide-react";
 import DotGrid from "../../components/ui/DotGrid";
 
 export default function HomePage() {
+    const [isServerReady, setIsServerReady] = useState(false);
+
     useEffect(() => {
         const pingBackend = async () => {
             try {
@@ -10,6 +13,8 @@ export default function HomePage() {
             } catch (error) {
                 // Silent fail or log if needed, user just wants to trigger it
                 console.error("Wake-up ping failed", error);
+            } finally {
+                setIsServerReady(true);
             }
         };
         pingBackend();
@@ -28,7 +33,9 @@ export default function HomePage() {
                 <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4 md:px-12">
                     {/* Logo Section */}
                     <div className="flex items-center gap-3 shrink-0">
-                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 shadow-lg shadow-indigo-500/20"></div>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 shadow-lg shadow-indigo-500/20">
+                            <LinkIcon className="h-6 w-6 text-white" />
+                        </div>
                         <span className="text-xl font-bold tracking-tight text-white hidden sm:block">ForceLink CRM</span>
                         <span className="text-xl font-bold tracking-tight text-white sm:hidden">ForceLink</span>
                     </div>
@@ -57,10 +64,10 @@ export default function HomePage() {
                     {/* Badge */}
                     <div className="animate-fade-in-up mx-auto inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-sm font-medium text-indigo-300 backdrop-blur-sm">
                         <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${!isServerReady ? "bg-amber-400" : "bg-indigo-400"} opacity-75`}></span>
+                            <span className={`relative inline-flex rounded-full h-2 w-2 ${!isServerReady ? "bg-amber-500" : "bg-indigo-500"}`}></span>
                         </span>
-                        Powered by Gemini AI & Salesforce
+                        {!isServerReady ? "Waking server..." : "Powered by Gemini AI & Salesforce"}
                     </div>
 
                     {/* Headline */}
